@@ -1,0 +1,599 @@
+// Grillz Studio — canonical data model.
+// Money is stored as integer minor units (cents). Dimensions are millimetres,
+// weights grams, volumes mm^3. JSON columns hold Zod-validated documents whose
+// schemas live in @grillz/shared-types.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────── identity ──
+
+enum Role {
+  CUSTOMER
+  MANUFACTURER
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  passwordHash  String?
+  role          Role      @default(CUSTOMER)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  refreshTokens RefreshToken[]
+  memberships   OrganizationMember[]
+  projects      Project[]
+  orders        Order[]
+  notifications Notification[]
+  auditLogs     AuditLog[]           @relation("AuditActor")
+  favorites     Favorite[]
+  assignedJobs  ProductionJob[]      @relation("JobAssignee")
+
+  @@index([role])
+}
+
+// Auth.js adapter tables
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// API refresh tokens (rotating, stored hashed)
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ────────────────────────────────────────────────────────── organizations ──
+
+enum OrganizationType {
+  STUDIO
+  MANUFACTURER
+}
+
+enum OrgMemberRole {
+  OWNER
+  MANAGER
+  TECHNICIAN
+}
+
+model Organization {
+  id        String           @id @default(cuid())
+  name      String
+  slug      String           @unique
+  type      OrganizationType @default(STUDIO)
+  isActive  Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  members        OrganizationMember[]
+  projects       Project[]
+  productionJobs ProductionJob[]
+}
+
+model OrganizationMember {
+  id             String        @id @default(cuid())
+  organizationId String
+  userId         String
+  role           OrgMemberRole @default(TECHNICIAN)
+  createdAt      DateTime      @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────────── projects ──
+
+enum ProjectStatus {
+  DRAFT
+  SCANNING
+  DESIGNING
+  REVIEW
+  ORDERED
+  ARCHIVED
+}
+
+model Project {
+  id             String        @id @default(cuid())
+  name           String
+  description    String?
+  status         ProjectStatus @default(DRAFT)
+  ownerId        String
+  organizationId String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  owner        User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  scans        DentalScan[]
+  grillz       Grillz[]
+  orders       Order[]
+
+  @@index([ownerId, status])
+  @@index([organizationId])
+}
+
+// ──────────────────────────────────────────────────────────── dental scans ──
+
+enum ScanFormat {
+  STL
+  PLY
+  OBJ
+  GLB
+  GLTF
+}
+
+enum JawKind {
+  UPPER
+  LOWER
+  FULL
+  UNKNOWN
+}
+
+enum ScanStatus {
+  AWAITING_UPLOAD
+  UPLOADED
+  VALIDATING
+  OPTIMIZING
+  ANALYZING
+  SEGMENTING
+  READY
+  FAILED
+}
+
+model DentalScan {
+  id              String     @id @default(cuid())
+  projectId       String
+  name            String
+  format          ScanFormat
+  jaw             JawKind    @default(UNKNOWN)
+  status          ScanStatus @default(AWAITING_UPLOAD)
+  originalFileKey String
+  processedGlbKey String?
+  thumbnailKey    String?
+  fileSizeBytes   Int?
+  // { vertexCount, triangleCount, surfaceAreaMm2, volumeMm3, watertight }
+  meshStats       Json?
+  // { min:[x,y,z], max:[x,y,z] } millimetres, post-centering
+  boundingBox     Json?
+  errorMessage    String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  teeth   Tooth[]
+
+  @@index([projectId, status])
+}
+
+model Tooth {
+  id            String   @id @default(cuid())
+  scanId        String
+  // FDI two-digit notation: 11–18, 21–28, 31–38, 41–48
+  fdiNumber     Int
+  // [x,y,z] centroid in scan-local mm
+  centroid      Json
+  // { min:[x,y,z], max:[x,y,z] }
+  boundingBox   Json
+  surfaceAreaMm2 Float
+  // contiguous triangle range in the processed mesh: { start, count }
+  triangleRange Json
+  confidence    Float    @default(1)
+  createdAt     DateTime @default(now())
+
+  scan DentalScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+
+  @@unique([scanId, fdiNumber])
+}
+
+// ────────────────────────────────────────────────────────────── catalogue ──
+
+enum MaterialType {
+  GOLD_10K
+  GOLD_14K
+  GOLD_18K
+  WHITE_GOLD
+  ROSE_GOLD
+  SILVER
+  PLATINUM
+}
+
+enum SurfaceFinish {
+  GLOSS
+  MATTE
+  BRUSHED
+  HAMMERED
+}
+
+model Material {
+  id             String       @id @default(cuid())
+  type           MaterialType @unique
+  name           String
+  densityGCm3    Float
+  pricePerGram   Int // minor units
+  // PBR hints for the viewer
+  colorHex       String
+  metalness      Float        @default(1)
+  roughness      Float        @default(0.15)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  grillz Grillz[]
+}
+
+enum StoneType {
+  NATURAL_DIAMOND
+  LAB_DIAMOND
+  CZ
+}
+
+enum StoneShape {
+  ROUND
+  PRINCESS
+  EMERALD
+  HEART
+}
+
+model DiamondSetting {
+  id           String     @id @default(cuid())
+  grillzId     String     @unique
+  stoneType    StoneType
+  shape        StoneShape @default(ROUND)
+  stoneSizeMm  Float      @default(1.5)
+  spacingMm    Float      @default(0.6)
+  // 0–1 fraction of pavable facial surface actually set with stones
+  density      Float      @default(0.5)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  grillz Grillz @relation(fields: [grillzId], references: [id], onDelete: Cascade)
+}
+
+enum PatternKind {
+  CLASSIC
+  HONEYCOMB
+  BAGUETTE
+  FLOODED
+  ICED
+  SNAKE
+  FLAME
+  CUSTOM_ENGRAVING
+}
+
+model Pattern {
+  id          String      @id @default(cuid())
+  kind        PatternKind @unique
+  name        String
+  description String
+  // pattern-specific tuning knobs (cell size, relief depth, …)
+  params      Json
+  previewKey  String?
+  laborFactor Float       @default(1)
+  isActive    Boolean     @default(true)
+
+  grillz Grillz[]
+}
+
+// ───────────────────────────────────────────────────────────────── grillz ──
+
+enum GrillzSetType {
+  SINGLE
+  DUO
+  QUAD
+  SIX
+  EIGHT
+  UPPER
+  LOWER
+  FULL_SET
+}
+
+enum GrillzStatus {
+  DRAFT
+  PRICED
+  LOCKED
+  IN_PRODUCTION
+  COMPLETED
+}
+
+model Grillz {
+  id            String        @id @default(cuid())
+  projectId     String
+  name          String
+  status        GrillzStatus  @default(DRAFT)
+  setType       GrillzSetType
+  // FDI numbers covered by this design
+  toothNumbers  Int[]
+  materialId    String
+  finish        SurfaceFinish @default(GLOSS)
+  patternId     String?
+  engravingText String?
+  // geometry parameters (mm)
+  thicknessMm   Float         @default(0.8)
+  offsetMm      Float         @default(0.05)
+  fitToleranceMm Float        @default(0.08)
+  chamferMm     Float         @default(0.2)
+  edgeRadiusMm  Float         @default(0.15)
+  // full designer document — Zod GrillzConfig
+  configJson    Json
+  // immutable server quote at last pricing — Zod PriceQuote
+  priceSnapshot Json?
+  exportedFiles Json?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  project        Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  material       Material        @relation(fields: [materialId], references: [id])
+  pattern        Pattern?        @relation(fields: [patternId], references: [id])
+  diamondSetting DiamondSetting?
+  orderItems     OrderItem[]
+  renderingJobs  RenderingJob[]
+  favorites      Favorite[]
+
+  @@index([projectId, status])
+}
+
+model Favorite {
+  id       String   @id @default(cuid())
+  userId   String
+  grillzId String
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  grillz Grillz @relation(fields: [grillzId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, grillzId])
+}
+
+// ─────────────────────────────────────────────────────── orders & payments ──
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  IN_PRODUCTION
+  QUALITY_CHECK
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  number          String      @unique // human-facing e.g. GS-2026-000123
+  userId          String
+  projectId       String
+  status          OrderStatus @default(PENDING_PAYMENT)
+  currency        String      @default("USD")
+  subtotalMinor   Int
+  taxMinor        Int
+  shippingMinor   Int
+  totalMinor      Int
+  // Zod PriceQuote snapshot the order was placed against (immutable)
+  quoteJson       Json
+  shippingAddress Json
+  placedAt        DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  user          User            @relation(fields: [userId], references: [id])
+  project       Project         @relation(fields: [projectId], references: [id])
+  items         OrderItem[]
+  payments      Payment[]
+  productionJob ProductionJob?
+
+  @@index([userId, status])
+  @@index([status, placedAt])
+}
+
+model OrderItem {
+  id            String @id @default(cuid())
+  orderId       String
+  grillzId      String
+  unitPriceMinor Int
+  quantity      Int    @default(1)
+
+  order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  grillz Grillz @relation(fields: [grillzId], references: [id])
+
+  @@index([orderId])
+}
+
+enum PaymentStatus {
+  REQUIRES_ACTION
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+model Payment {
+  id           String        @id @default(cuid())
+  orderId      String
+  provider     String // "stripe" | "mock"
+  providerRef  String? // e.g. Stripe PaymentIntent id
+  status       PaymentStatus @default(PROCESSING)
+  amountMinor  Int
+  currency     String        @default("USD")
+  failureReason String?
+  capturedAt   DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([provider, providerRef])
+}
+
+// ─────────────────────────────────────────────────────────────── pipeline ──
+
+enum ProductionStage {
+  QUEUED
+  CAD_REVIEW
+  PRINTING
+  CASTING
+  STONE_SETTING
+  POLISHING
+  QUALITY_CONTROL
+  SHIPPED
+}
+
+model ProductionJob {
+  id             String          @id @default(cuid())
+  orderId        String          @unique
+  organizationId String?
+  assigneeId     String?
+  stage          ProductionStage @default(QUEUED)
+  priority       Int             @default(0)
+  // exported manufacturing artifacts: [{ format, fileKey, sizeBytes }]
+  files          Json?
+  notes          String?
+  dueAt          DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  order        Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  assignee     User?         @relation("JobAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@index([stage, priority])
+  @@index([organizationId, stage])
+}
+
+enum RenderJobType {
+  THUMBNAIL
+  TURNTABLE
+  EXPORT_STL
+  EXPORT_OBJ
+  EXPORT_GLTF
+  PRODUCTION_PDF
+}
+
+enum RenderJobStatus {
+  QUEUED
+  RUNNING
+  DONE
+  FAILED
+}
+
+model RenderingJob {
+  id           String          @id @default(cuid())
+  grillzId     String?
+  scanId       String?
+  type         RenderJobType
+  status       RenderJobStatus @default(QUEUED)
+  outputKey    String?
+  errorMessage String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  grillz Grillz? @relation(fields: [grillzId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([grillzId])
+}
+
+// ────────────────────────────────────────────────────── audit & messaging ──
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String // e.g. "order.place", "auth.login", "admin.material.update"
+  entityType String
+  entityId   String?
+  metadata   Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+}
+
+enum NotificationType {
+  SCAN_READY
+  SCAN_FAILED
+  QUOTE_READY
+  ORDER_STATUS
+  PRODUCTION_UPDATE
+  SYSTEM
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+}

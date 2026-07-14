@@ -1,0 +1,36 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# builds
+dist/
+.next/
+out/
+build/
+.turbo/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# prisma
+packages/database/src/generated/
+
+# testing
+coverage/
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
+pnpm-debug.log*
+
+# uploads (local dev fallback storage)
+.storage/
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
