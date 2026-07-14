@@ -1,0 +1,33 @@
+{
+  "name": "@grillz/three-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@grillz/cad-engine": "workspace:*",
+    "@grillz/shared-types": "workspace:*"
+  },
+  "peerDependencies": {
+    "@react-three/drei": "^9.117.0",
+    "@react-three/fiber": "^8.17.10",
+    "leva": "^0.9.35",
+    "react": "^18.3.1",
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "@react-three/drei": "^9.117.0",
+    "@react-three/fiber": "^8.17.10",
+    "@types/react": "^18.3.12",
+    "@types/three": "^0.170.0",
+    "leva": "^0.9.35",
+    "react": "^18.3.1",
+    "three": "^0.170.0",
+    "typescript": "^5.6.3"
+  }
+}
