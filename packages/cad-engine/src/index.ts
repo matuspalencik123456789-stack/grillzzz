@@ -7,6 +7,7 @@ export * from './normals';
 export * from './analyze';
 export * from './dental/jaw';
 export * from './dental/segmentation';
+export * from './dental/shell';
 export * from './export/stl';
 export * from './export/obj';
 export * from './export/gltf';

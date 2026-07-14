@@ -310,3 +310,30 @@ describe('processScan pipeline', () => {
     await expect(processScan(garbage, 'STL')).rejects.toThrow();
   });
 });
+
+describe('buildGrillzShell', () => {
+  it('produces a closed, thicker shell over the selected teeth', async () => {
+    const { buildGrillzShell } = await import('./dental/shell');
+    const arch = optimizeMesh(generateSyntheticArch({ toothCount: 6 }));
+    centerMesh(arch);
+    const jaw = detectJaw(arch, 'UPPER');
+    const { mesh, teeth } = new ArchToothSegmenter().segment(arch, jaw);
+
+    const front = teeth.slice(1, 5); // 4 anterior teeth
+    const shell = buildGrillzShell(mesh, front.map((t) => t.triangleRange), {
+      thicknessMm: 0.8,
+      offsetMm: 0.05,
+      fitToleranceMm: 0.08,
+      chamferMm: 0.2,
+      edgeRadiusMm: 0.15,
+    });
+
+    const analysis = analyzeMesh(shell);
+    expect(analysis.watertight).toBe(true);
+    expect(analysis.volumeMm3).toBeGreaterThan(0);
+    // shell volume ≈ covered area × wall thickness
+    const coveredArea = front.reduce((s, t) => s + t.surfaceAreaMm2, 0);
+    expect(analysis.volumeMm3).toBeGreaterThan(coveredArea * 0.4);
+    expect(analysis.volumeMm3).toBeLessThan(coveredArea * 2.5);
+  });
+});
