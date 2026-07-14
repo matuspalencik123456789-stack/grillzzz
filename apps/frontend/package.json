@@ -1,0 +1,42 @@
+{
+  "name": "@grillz/frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@grillz/cad-engine": "workspace:*",
+    "@grillz/pricing-engine": "workspace:*",
+    "@grillz/shared-types": "workspace:*",
+    "@grillz/three-engine": "workspace:*",
+    "@grillz/ui": "workspace:*",
+    "@hookform/resolvers": "^3.9.1",
+    "@react-three/drei": "^9.117.0",
+    "@react-three/fiber": "^8.17.10",
+    "@tanstack/react-query": "^5.62.8",
+    "framer-motion": "^11.15.0",
+    "leva": "^0.9.35",
+    "next": "^14.2.21",
+    "next-auth": "5.0.0-beta.25",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hook-form": "^7.54.2",
+    "three": "^0.170.0",
+    "zod": "^3.23.8",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/three": "^0.170.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.6.3"
+  }
+}

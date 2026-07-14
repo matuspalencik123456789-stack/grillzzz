@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 240 8% 4%;
+  --foreground: 40 12% 92%;
+  --card: 240 7% 7%;
+  --card-foreground: 40 12% 92%;
+  --popover: 240 7% 6%;
+  --popover-foreground: 40 12% 92%;
+  --primary: 43 74% 62%;
+  --primary-foreground: 240 8% 6%;
+  --secondary: 240 5% 13%;
+  --secondary-foreground: 40 10% 85%;
+  --muted: 240 5% 12%;
+  --muted-foreground: 240 5% 58%;
+  --accent: 240 5% 15%;
+  --accent-foreground: 40 12% 92%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 6% 16%;
+  --input: 240 6% 18%;
+  --ring: 43 74% 62%;
+  --radius: 0.625rem;
+  --font-sans: ui-sans-serif;
+  --font-display: ui-serif;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-background text-foreground antialiased;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, hsl(43 74% 62% / 0.06), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 110%, hsl(220 60% 50% / 0.04), transparent);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* luxury glass panel used across the studio */
+.glass {
+  @apply border border-white/[0.06] bg-white/[0.03] backdrop-blur-xl shadow-glass;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-zinc-700/60 hover:bg-zinc-600/70;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
