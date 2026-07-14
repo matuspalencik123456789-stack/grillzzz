@@ -337,3 +337,24 @@ describe('buildGrillzShell', () => {
     expect(analysis.volumeMm3).toBeLessThan(coveredArea * 2.5);
   });
 });
+
+describe('smoothMesh', () => {
+  it('rounds a welded mesh without changing topology or exploding', async () => {
+    const { smoothMesh } = await import('./smooth');
+    const arch = optimizeMesh(generateSyntheticArch({ toothCount: 4, detail: 4 }));
+    const before = analyzeMesh(arch);
+    const smoothed = smoothMesh(arch, { iterations: 6 });
+
+    expect(smoothed.positions.length).toBe(arch.positions.length);
+    expect(smoothed.indices).toBe(arch.indices);
+    for (let i = 0; i < smoothed.positions.length; i++) {
+      expect(Number.isFinite(smoothed.positions[i]!)).toBe(true);
+    }
+    const after = analyzeMesh(smoothed);
+    // Taubin smoothing rounds corners: area drops but volume stays comparable
+    expect(after.surfaceAreaMm2).toBeLessThan(before.surfaceAreaMm2);
+    expect(after.volumeMm3).toBeGreaterThan(before.volumeMm3 * 0.6);
+    expect(after.volumeMm3).toBeLessThan(before.volumeMm3 * 1.1);
+    expect(smoothed.normals).toBeDefined();
+  });
+});

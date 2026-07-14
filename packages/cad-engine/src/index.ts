@@ -2,6 +2,7 @@ export * from './types';
 export * from './parsers';
 export * from './validate';
 export * from './optimize';
+export * from './smooth';
 export * from './transform';
 export * from './normals';
 export * from './analyze';

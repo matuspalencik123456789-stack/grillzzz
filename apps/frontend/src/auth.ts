@@ -47,6 +47,7 @@ async function backendRefresh(refreshToken: string): Promise<AuthTokens | null> 
  * Auth.js JWT cookie. The access token auto-refreshes ~1 min before expiry.
  */
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true, // self-hosted deployments (Docker, bare Node) — host comes from the request
   session: { strategy: 'jwt' },
   providers: [
     Google({
