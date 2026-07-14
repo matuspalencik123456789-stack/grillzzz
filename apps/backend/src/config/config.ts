@@ -1,9 +1,21 @@
 import { z } from 'zod';
+import { config as loadDotenv } from 'dotenv';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 /**
  * Zod-validated environment. The process refuses to boot on invalid config —
  * misconfiguration fails loudly at deploy time, not at first request.
+ *
+ * Local dev reads the monorepo-root .env (cwd is apps/backend); containers
+ * and CI provide real environment variables, which always take precedence —
+ * dotenv never overrides existing process.env values.
  */
+function loadEnvFiles(): void {
+  for (const candidate of [resolve(process.cwd(), '../../.env'), resolve(process.cwd(), '.env')]) {
+    if (existsSync(candidate)) loadDotenv({ path: candidate });
+  }
+}
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_PORT: z.coerce.number().int().default(4000),
@@ -42,6 +54,7 @@ let cached: AppConfig | null = null;
 
 export function loadConfig(): AppConfig {
   if (!cached) {
+    loadEnvFiles();
     const parsed = envSchema.safeParse(process.env);
     if (!parsed.success) {
       const details = parsed.error.issues
