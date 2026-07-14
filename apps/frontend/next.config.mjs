@@ -14,13 +14,11 @@ for (const candidate of [resolve(appDir, '../../.env'), join(appDir, '.env')]) {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: [
-    '@grillz/ui',
-    '@grillz/three-engine',
-    '@grillz/shared-types',
-    '@grillz/pricing-engine',
-    '@grillz/cad-engine',
-  ],
+  // Only source-distributed TS packages belong here. Compiled CJS workspace
+  // packages (shared-types, pricing-engine, cad-engine, database) must NOT be
+  // transpiled: next dev's react-refresh loader injects import.meta.webpackHot
+  // into transpiled modules, which is a parse error in CommonJS files.
+  transpilePackages: ['@grillz/ui', '@grillz/three-engine'],
   output: 'standalone',
   eslint: { ignoreDuringBuilds: true },
 };
