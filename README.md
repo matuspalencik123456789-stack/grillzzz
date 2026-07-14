@@ -22,10 +22,29 @@ packages/
 
 ```bash
 cp .env.example .env
-docker compose up -d postgres redis minio minio-init
+docker compose up -d postgres redis minio minio-init   # Postgres 5432, Redis 6379, MinIO 9000
 pnpm install
-pnpm db:generate && pnpm db:migrate && pnpm db:seed
-pnpm dev            # frontend :3000, backend :4000
+pnpm db:generate && pnpm db:migrate && pnpm db:seed    # schema + materials/patterns/admin
+pnpm dev                                               # frontend :3000, backend :4000
+```
+
+Open http://localhost:3000 — register an account, or sign in as the seeded
+admin `admin@grillz.studio` / `admin-dev-password` (override with
+`SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` before seeding).
+
+No dental scan at hand? Generate a synthetic test arch:
+
+```bash
+npx tsx -e "import{generateSyntheticArch,exportStl}from'./packages/cad-engine/src/index';import{writeFileSync}from'node:fs';writeFileSync('test-arch.stl',exportStl(generateSyntheticArch({toothCount:8})))"
+```
+
+then upload `test-arch.stl` in any project.
+
+Verify the whole stack end-to-end (register → upload → pipeline → design →
+AI → quote → order → payment → production → manufacturing files):
+
+```bash
+pnpm smoke
 ```
 
 Full containerized stack: `docker compose --profile full up --build`.

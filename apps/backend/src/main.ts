@@ -17,7 +17,7 @@ async function bootstrap(): Promise<void> {
     origin: config.API_CORS_ORIGIN.split(',').map((o) => o.trim()),
     credentials: true,
   });
-  app.setGlobalPrefix('api/v1', { exclude: ['health'] });
+  app.setGlobalPrefix('api/v1', { exclude: ['health', 'health/ready'] });
   app.enableShutdownHooks();
 
   await app.listen(config.API_PORT);
