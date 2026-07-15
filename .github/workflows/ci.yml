@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches: [claude/grillz-studio-saas-build-0nxuwb, main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Build, typecheck, unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  e2e-smoke:
+    name: Full-stack smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: grillz
+          POSTGRES_PASSWORD: grillz
+          POSTGRES_DB: grillz_studio
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U grillz -d grillz_studio"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # Service containers cannot override the image command, and minio/minio
+      # requires `server /data` — so MinIO is started manually.
+      - name: Start MinIO + create bucket
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=grillz -e MINIO_ROOT_PASSWORD=grillz-secret \
+            minio/minio:latest server /data
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:9000/minio/health/live && break
+            sleep 1
+          done
+          docker run --rm --network host \
+            -e MC_HOST_local=http://grillz:grillz-secret@localhost:9000 \
+            minio/mc:latest mb --ignore-existing local/grillz-studio
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Configure environment
+        run: cp .env.example .env
+
+      - name: Build backend and its packages
+        run: pnpm build --filter=@grillz/backend...
+
+      - name: Migrate + seed database
+        run: |
+          pnpm --filter @grillz/database db:deploy
+          pnpm --filter @grillz/database db:seed
+
+      - name: Start backend
+        run: |
+          nohup pnpm --filter @grillz/backend start > backend.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:4000/health/ready && exit 0
+            sleep 1
+          done
+          echo "backend did not become ready"
+          tail -n 100 backend.log
+          exit 1
+
+      - name: Run end-to-end smoke test
+        run: pnpm smoke
+
+      - name: Backend logs (on failure)
+        if: failure()
+        run: tail -n 200 backend.log || true

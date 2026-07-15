@@ -47,12 +47,14 @@ AI → quote → order → payment → production → manufacturing files):
 pnpm smoke
 ```
 
-Full containerized stack: `docker compose --profile full up --build`.
+Full containerized stack: `docker compose --profile full up --build`
+(migrations run automatically; see [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)).
 
 ## Docs
 
 - [ROADMAP.md](./ROADMAP.md) — delivery milestones
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — system design and decisions
+- [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) — production deployment, env reference, CI
 
 ## Commands
 

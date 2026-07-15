@@ -3,7 +3,11 @@ import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
 import type { AuthTokens, Role } from '@grillz/shared-types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+// Server-side calls may need a different origin than the browser (e.g. the
+// docker network hostname). API_INTERNAL_URL is read at runtime, while
+// NEXT_PUBLIC_API_URL is inlined at build time.
+const API_URL =
+  process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 interface BackendSession {
   user: { id: string; email: string; name: string | null; image: string | null; role: Role };

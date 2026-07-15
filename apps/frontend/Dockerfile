@@ -16,6 +16,11 @@ RUN pnpm install --frozen-lockfile=false --filter @grillz/frontend...
 COPY packages packages
 COPY apps/frontend apps/frontend
 
+# NEXT_PUBLIC_* values are inlined into the client bundle at build time, so the
+# public API origin must be provided here, not at runtime.
+ARG NEXT_PUBLIC_API_URL=http://localhost:4000
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm --filter @grillz/shared-types build \
  && pnpm --filter @grillz/pricing-engine build \
