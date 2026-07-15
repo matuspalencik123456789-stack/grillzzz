@@ -33,6 +33,14 @@ async function main() {
   token = reg.tokens.accessToken;
   ok('register + JWT', email);
 
+  // 1b. account-recovery endpoints answer without leaking account existence
+  const forgotKnown = await call<{ ok: boolean }>('/auth/forgot-password', 'POST', { email });
+  const forgotUnknown = await call<{ ok: boolean }>('/auth/forgot-password', 'POST', {
+    email: `ghost-${Date.now()}@test.dev`,
+  });
+  if (!forgotKnown.ok || !forgotUnknown.ok) throw new Error('forgot-password did not return ok');
+  ok('password-reset request accepted (uniform response)');
+
   // 2. create project
   const project = await call<{ id: string }>('/projects', 'POST', { name: 'Smoke Project' });
   ok('project created', project.id);

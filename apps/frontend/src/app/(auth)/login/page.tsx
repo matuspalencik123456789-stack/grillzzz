@@ -54,7 +54,12 @@ function LoginForm() {
             {errors.email && <p className="text-xs text-red-400">{errors.email.message}</p>}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="password">Password</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Password</Label>
+              <Link href="/forgot-password" className="text-xs text-gold-300 hover:underline">
+                Forgot password?
+              </Link>
+            </div>
             <Input id="password" type="password" autoComplete="current-password" {...register('password')} />
             {errors.password && <p className="text-xs text-red-400">{errors.password.message}</p>}
           </div>

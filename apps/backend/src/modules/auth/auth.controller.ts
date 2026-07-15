@@ -11,13 +11,19 @@ import {
 import { timingSafeEqual } from 'node:crypto';
 import {
   federatedLoginSchema,
+  forgotPasswordSchema,
   loginSchema,
   refreshSchema,
   registerSchema,
+  resetPasswordSchema,
+  verifyEmailSchema,
   type FederatedLoginDto,
+  type ForgotPasswordDto,
   type LoginDto,
   type RefreshDto,
   type RegisterDto,
+  type ResetPasswordDto,
+  type VerifyEmailDto,
 } from '@grillz/shared-types';
 import { AuthService } from './auth.service';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
@@ -78,6 +84,51 @@ export class AuthController {
   @Post('logout')
   async logout(@CurrentUser() user: AuthenticatedUser): Promise<void> {
     await this.auth.logout(user.id);
+  }
+
+  /** Always 200 — the response must not reveal whether the account exists. */
+  @Public()
+  @RateLimit({ limit: 5, windowSec: 300 })
+  @HttpCode(200)
+  @Post('forgot-password')
+  async forgotPassword(
+    @Body(new ZodValidationPipe(forgotPasswordSchema)) dto: ForgotPasswordDto,
+    @Ip() ip: string,
+  ) {
+    await this.auth.requestPasswordReset(dto.email, ip);
+    return { ok: true };
+  }
+
+  @Public()
+  @RateLimit({ limit: 10, windowSec: 300 })
+  @HttpCode(200)
+  @Post('reset-password')
+  async resetPassword(
+    @Body(new ZodValidationPipe(resetPasswordSchema)) dto: ResetPasswordDto,
+    @Ip() ip: string,
+  ) {
+    await this.auth.resetPassword(dto.token, dto.password, ip);
+    return { ok: true };
+  }
+
+  @Public()
+  @RateLimit({ limit: 10, windowSec: 300 })
+  @HttpCode(200)
+  @Post('verify-email')
+  async verifyEmail(
+    @Body(new ZodValidationPipe(verifyEmailSchema)) dto: VerifyEmailDto,
+    @Ip() ip: string,
+  ) {
+    await this.auth.verifyEmail(dto.token, ip);
+    return { ok: true };
+  }
+
+  @RateLimit({ limit: 3, windowSec: 300 })
+  @HttpCode(200)
+  @Post('resend-verification')
+  async resendVerification(@CurrentUser() user: AuthenticatedUser) {
+    await this.auth.resendVerification(user.id);
+    return { ok: true };
   }
 }
 

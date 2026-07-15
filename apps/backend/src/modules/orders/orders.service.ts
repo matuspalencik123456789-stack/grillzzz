@@ -13,7 +13,11 @@ import { ManufacturingService } from '../grillz/manufacturing.service';
 import { PaymentsService } from '../payments/payments.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuditService } from '../audit/audit.service';
+import { MailService } from '../mail/mail.service';
+import { orderPaidTemplate } from '../mail/templates';
+import { CONFIG, type AppConfig } from '../../config/config';
 import { OrderRepository } from './order.repository';
+import { Inject } from '@nestjs/common';
 
 @Injectable()
 export class OrdersService implements OnModuleInit {
@@ -26,6 +30,8 @@ export class OrdersService implements OnModuleInit {
     private readonly payments: PaymentsService,
     private readonly notifications: NotificationsService,
     private readonly audit: AuditService,
+    private readonly mail: MailService,
+    @Inject(CONFIG) private readonly config: AppConfig,
   ) {}
 
   onModuleInit(): void {
@@ -108,6 +114,23 @@ export class OrdersService implements OnModuleInit {
       body: 'Your grillz are heading to production. We will keep you posted at every stage.',
       data: { orderId },
     });
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: order.userId },
+      select: { email: true, name: true },
+    });
+    if (user) {
+      await this.mail.sendSafe(
+        orderPaidTemplate({
+          to: user.email,
+          name: user.name,
+          orderNumber: order.number,
+          totalMinor: order.totalMinor,
+          currency: order.currency,
+          orderUrl: `${this.config.APP_URL}/orders/${orderId}`,
+        }),
+      );
+    }
   }
 
   async listForUser(userId: string) {

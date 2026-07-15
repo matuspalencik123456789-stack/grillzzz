@@ -15,7 +15,14 @@ import type {
 } from '@grillz/shared-types';
 import { PrismaService } from '../../infra/prisma.module';
 import { PasswordService } from './password.service';
+import {
+  ActionTokenService,
+  RESET_TOKEN_TTL_MS,
+  VERIFY_TOKEN_TTL_MS,
+} from './action-token.service';
 import { AuditService } from '../audit/audit.service';
+import { MailService } from '../mail/mail.service';
+import { resetPasswordTemplate, verifyEmailTemplate } from '../mail/templates';
 import { CONFIG, type AppConfig } from '../../config/config';
 
 export interface PublicUser {
@@ -31,8 +38,10 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly passwords: PasswordService,
+    private readonly actionTokens: ActionTokenService,
     private readonly jwt: JwtService,
     private readonly audit: AuditService,
+    private readonly mail: MailService,
     @Inject(CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -48,7 +57,67 @@ export class AuthService {
       },
     });
     this.audit.record({ actorId: user.id, action: 'auth.register', entityType: 'User', entityId: user.id, ip });
+    await this.sendVerificationEmail(user.id, user.email, user.name);
     return { user: toPublic(user), tokens: await this.issueTokens(user.id, user.email, user.role) };
+  }
+
+  /**
+   * Always resolves — a "does this account exist" oracle would enable user
+   * enumeration. OAuth-only accounts may set a password this way.
+   */
+  async requestPasswordReset(email: string, ip?: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user || !user.isActive) return;
+
+    const token = await this.actionTokens.issue(user.id, 'PASSWORD_RESET', RESET_TOKEN_TTL_MS);
+    this.audit.record({ actorId: user.id, action: 'auth.password_reset_requested', entityType: 'User', entityId: user.id, ip });
+    await this.mail.sendSafe(
+      resetPasswordTemplate({
+        to: user.email,
+        name: user.name,
+        url: `${this.config.APP_URL}/reset-password?token=${token}`,
+      }),
+    );
+  }
+
+  async resetPassword(token: string, password: string, ip?: string): Promise<void> {
+    const userId = await this.actionTokens.consume(token, 'PASSWORD_RESET');
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: await this.passwords.hash(password) },
+    });
+    // a reset proves email control, and every existing session is now suspect
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    this.audit.record({ actorId: userId, action: 'auth.password_reset', entityType: 'User', entityId: userId, ip });
+  }
+
+  async verifyEmail(token: string, ip?: string): Promise<void> {
+    const userId = await this.actionTokens.consume(token, 'EMAIL_VERIFICATION');
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { emailVerified: new Date() },
+    });
+    this.audit.record({ actorId: userId, action: 'auth.email_verified', entityType: 'User', entityId: userId, ip });
+  }
+
+  async resendVerification(userId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.emailVerified) return;
+    await this.sendVerificationEmail(user.id, user.email, user.name);
+  }
+
+  private async sendVerificationEmail(userId: string, email: string, name: string | null): Promise<void> {
+    const token = await this.actionTokens.issue(userId, 'EMAIL_VERIFICATION', VERIFY_TOKEN_TTL_MS);
+    await this.mail.sendSafe(
+      verifyEmailTemplate({
+        to: email,
+        name,
+        url: `${this.config.APP_URL}/verify-email?token=${token}`,
+      }),
+    );
   }
 
   async login(dto: LoginDto, ip?: string): Promise<{ user: PublicUser; tokens: AuthTokens }> {

@@ -6,9 +6,10 @@ import { PricingModule } from '../pricing/pricing.module';
 import { GrillzModule } from '../grillz/grillz.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
-  imports: [PricingModule, GrillzModule, PaymentsModule, NotificationsModule],
+  imports: [PricingModule, GrillzModule, PaymentsModule, NotificationsModule, MailModule],
   controllers: [OrdersController],
   providers: [OrdersService, OrderRepository],
   exports: [OrdersService, OrderRepository],

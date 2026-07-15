@@ -37,6 +37,18 @@ export type FederatedLoginDto = z.infer<typeof federatedLoginSchema>;
 export const refreshSchema = z.object({ refreshToken: z.string().min(20) });
 export type RefreshDto = z.infer<typeof refreshSchema>;
 
+export const forgotPasswordSchema = z.object({ email: z.string().email() });
+export type ForgotPasswordDto = z.infer<typeof forgotPasswordSchema>;
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(20).max(200),
+  password: z.string().min(10).max(128),
+});
+export type ResetPasswordDto = z.infer<typeof resetPasswordSchema>;
+
+export const verifyEmailSchema = z.object({ token: z.string().min(20).max(200) });
+export type VerifyEmailDto = z.infer<typeof verifyEmailSchema>;
+
 export const authTokensSchema = z.object({
   accessToken: z.string(),
   refreshToken: z.string(),

@@ -44,6 +44,12 @@ const envSchema = z.object({
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
 
+  /** public frontend origin used in email links */
+  APP_URL: z.string().default('http://localhost:3000'),
+  /** empty key ⇒ emails are logged to stdout instead of sent (dev fallback) */
+  RESEND_API_KEY: z.string().optional(),
+  MAIL_FROM: z.string().default('Grillz Studio <no-reply@grillz.studio>'),
+
   ANTHROPIC_API_KEY: z.string().optional(),
   AI_MODEL: z.string().default('claude-sonnet-5'),
 });

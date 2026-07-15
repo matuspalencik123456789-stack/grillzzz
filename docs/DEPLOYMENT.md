@@ -104,6 +104,9 @@ The frontend standalone server is stateless as well.
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | no | Empty ⇒ mock payment provider (dev only) |
 | `ANTHROPIC_API_KEY` | no | Empty ⇒ deterministic rules-engine AI fallback |
 | `AI_MODEL` | no | Default `claude-sonnet-5` |
+| `RESEND_API_KEY` | no | Transactional email (verification, password reset, order confirmations). Empty ⇒ emails are logged to stdout instead of sent |
+| `MAIL_FROM` | no | Default `Grillz Studio <no-reply@grillz.studio>`; the domain must be verified in Resend |
+| `APP_URL` | yes | Public frontend origin used in email links |
 
 ### Frontend
 
@@ -128,6 +131,9 @@ The frontend standalone server is stateless as well.
       provider.
 - [ ] Google OAuth redirect URI `https://<app>/api/auth/callback/google`
       registered if Google sign-in is enabled.
+- [ ] `RESEND_API_KEY` set and the `MAIL_FROM` domain verified (SPF/DKIM) in
+      Resend — otherwise verification, password-reset, and order emails are
+      only written to backend logs.
 - [ ] Seed run once with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` overridden.
 - [ ] Reverse proxy passes `Host`/`X-Forwarded-*` headers (Auth.js uses them
       via `trustHost`).
