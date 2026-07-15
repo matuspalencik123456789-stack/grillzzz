@@ -32,6 +32,18 @@ Open http://localhost:3000 — register an account, or sign in as the seeded
 admin `admin@grillz.studio` / `admin-dev-password` (override with
 `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` before seeding).
 
+### Windows
+
+Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+(keep the WSL 2 option checked during setup), [Node.js 22 LTS](https://nodejs.org),
+and [Git for Windows](https://git-scm.com/download/win), then run the quick
+start above in PowerShell with two changes: get pnpm with
+`npm install -g pnpm@10`, and copy the env file with
+`copy .env.example .env`. If PowerShell refuses to run pnpm
+("running scripts is disabled"), allow it once with
+`Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
+and reopen the terminal.
+
 No dental scan at hand? Generate a synthetic test arch:
 
 ```bash
