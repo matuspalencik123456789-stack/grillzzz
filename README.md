@@ -32,6 +32,15 @@ Open http://localhost:3000 — register an account, or sign in as the seeded
 admin `admin@grillz.studio` / `admin-dev-password` (override with
 `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` before seeding).
 
+### macOS
+
+Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and
+[Node.js 22 LTS](https://nodejs.org) (or `brew install node@22`), then enable
+pnpm with `corepack enable` (or `npm install -g pnpm@10`). Start Docker
+Desktop and wait for the whale icon to settle, then run the quick start above.
+The default `.env` already points at the Docker services (Postgres, Redis,
+MinIO) — no edits needed.
+
 ### Windows
 
 Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)
