@@ -1,22 +1,15 @@
 import { Global, Inject, Module, type OnModuleDestroy } from '@nestjs/common';
-import { Queue } from 'bullmq';
 import { QUEUES } from '@grillz/shared-types';
 import { CONFIG, type AppConfig } from '../config/config';
+import { isMemoryMode } from './redis.module';
+import { BullJobQueue, MemoryJobQueue, type JobQueue } from './job-queue';
 
 export const SCAN_QUEUE = 'SCAN_QUEUE' as const;
 export const RENDER_QUEUE = 'RENDER_QUEUE' as const;
 export const NOTIFY_QUEUE = 'NOTIFY_QUEUE' as const;
 
-function makeQueue(name: string, config: AppConfig): Queue {
-  return new Queue(name, {
-    connection: { url: config.REDIS_URL },
-    defaultJobOptions: {
-      attempts: 3,
-      backoff: { type: 'exponential', delay: 5000 },
-      removeOnComplete: { age: 24 * 3600, count: 1000 },
-      removeOnFail: { age: 7 * 24 * 3600 },
-    },
-  });
+function makeQueue(name: string, config: AppConfig): JobQueue {
+  return isMemoryMode(config) ? new MemoryJobQueue(name) : new BullJobQueue(name, config.REDIS_URL);
 }
 
 @Global()
@@ -42,9 +35,9 @@ function makeQueue(name: string, config: AppConfig): Queue {
 })
 export class QueueModule implements OnModuleDestroy {
   constructor(
-    @Inject(SCAN_QUEUE) private readonly scanQueue: Queue,
-    @Inject(RENDER_QUEUE) private readonly renderQueue: Queue,
-    @Inject(NOTIFY_QUEUE) private readonly notifyQueue: Queue,
+    @Inject(SCAN_QUEUE) private readonly scanQueue: JobQueue,
+    @Inject(RENDER_QUEUE) private readonly renderQueue: JobQueue,
+    @Inject(NOTIFY_QUEUE) private readonly notifyQueue: JobQueue,
   ) {}
 
   async onModuleDestroy(): Promise<void> {

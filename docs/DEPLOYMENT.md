@@ -90,7 +90,7 @@ The frontend standalone server is stateless as well.
 | Variable | Required | Notes |
 | --- | --- | --- |
 | `DATABASE_URL` | yes | PostgreSQL connection string |
-| `REDIS_URL` | yes | Queues, cache, rate limiting |
+| `REDIS_URL` | yes | Queues, cache, rate limiting. `memory` = in-process dev-only mode, never use in production |
 | `S3_ENDPOINT` | yes | e.g. `https://s3.us-east-1.amazonaws.com` or MinIO URL |
 | `S3_REGION` | no | Default `us-east-1` |
 | `S3_BUCKET` | yes | Bucket for scans/exports |

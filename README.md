@@ -44,6 +44,10 @@ start above in PowerShell with two changes: get pnpm with
 `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
 and reopen the terminal.
 
+**No admin rights?** See
+[docs/WINDOWS-NO-ADMIN.md](./docs/WINDOWS-NO-ADMIN.md) — a fully user-level
+setup (Scoop + `REDIS_URL="memory"`), no Docker required.
+
 No dental scan at hand? Generate a synthetic test arch:
 
 ```bash

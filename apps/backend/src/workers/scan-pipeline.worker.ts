@@ -1,12 +1,12 @@
-import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import { Worker, type Job } from 'bullmq';
+import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { Prisma } from '@grillz/database';
 import { exportGlb, processScan } from '@grillz/cad-engine';
-import { QUEUES, type ScanPipelineJob } from '@grillz/shared-types';
+import type { ScanPipelineJob } from '@grillz/shared-types';
 import { PrismaService } from '../infra/prisma.module';
 import { StorageService } from '../infra/storage.module';
+import { SCAN_QUEUE } from '../infra/queue.module';
+import type { JobContext, JobQueue } from '../infra/job-queue';
 import { NotificationsService } from '../modules/notifications/notifications.service';
-import { CONFIG, type AppConfig } from '../config/config';
 import { renderMeshThumbnail } from './render/rasterize';
 
 const STAGE_TO_STATUS = {
@@ -17,41 +17,27 @@ const STAGE_TO_STATUS = {
 } as const;
 
 /**
- * BullMQ consumer for the scan-intake pipeline. Runs in-process with the API
- * by default; because it is plain BullMQ, scaling out is deploying the same
- * image with only this module enabled and more replicas.
+ * Consumer for the scan-intake pipeline. Runs in-process with the API by
+ * default; on BullMQ (the non-memory queue), scaling out is deploying the
+ * same image with only this module enabled and more replicas.
  */
 @Injectable()
-export class ScanPipelineWorker implements OnModuleInit, OnModuleDestroy {
+export class ScanPipelineWorker implements OnModuleInit {
   private readonly logger = new Logger(ScanPipelineWorker.name);
-  private worker: Worker<ScanPipelineJob> | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly notifications: NotificationsService,
-    @Inject(CONFIG) private readonly config: AppConfig,
+    @Inject(SCAN_QUEUE) private readonly queue: JobQueue<ScanPipelineJob>,
   ) {}
 
   onModuleInit(): void {
-    this.worker = new Worker<ScanPipelineJob>(
-      QUEUES.scanPipeline,
-      (job) => this.process(job),
-      {
-        connection: { url: this.config.REDIS_URL, maxRetriesPerRequest: null },
-        concurrency: 2, // mesh processing is CPU-bound
-      },
-    );
-    this.worker.on('failed', (job, err) => {
-      this.logger.error(`scan job ${job?.id} failed: ${err.message}`);
-    });
+    // concurrency 2: mesh processing is CPU-bound
+    this.queue.process((job) => this.process(job), 2);
   }
 
-  async onModuleDestroy(): Promise<void> {
-    await this.worker?.close();
-  }
-
-  private async process(job: Job<ScanPipelineJob>): Promise<void> {
+  private async process(job: JobContext<ScanPipelineJob>): Promise<void> {
     const { scanId, fileKey, format, jawHint } = job.data;
     const scan = await this.prisma.dentalScan.findUnique({
       where: { id: scanId },

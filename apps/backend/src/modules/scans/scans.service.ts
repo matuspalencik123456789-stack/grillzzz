@@ -5,7 +5,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Queue } from 'bullmq';
 import { randomUUID } from 'node:crypto';
 import type {
   CreateScanUploadDto,
@@ -15,6 +14,7 @@ import type {
 import { PrismaService } from '../../infra/prisma.module';
 import { StorageService } from '../../infra/storage.module';
 import { SCAN_QUEUE } from '../../infra/queue.module';
+import type { JobQueue } from '../../infra/job-queue';
 import { AuditService } from '../audit/audit.service';
 
 const EXTENSION_BY_FORMAT: Record<string, string[]> = {
@@ -31,7 +31,7 @@ export class ScansService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly audit: AuditService,
-    @Inject(SCAN_QUEUE) private readonly scanQueue: Queue,
+    @Inject(SCAN_QUEUE) private readonly scanQueue: JobQueue<ScanPipelineJob>,
   ) {}
 
   /**
